@@ -712,30 +712,54 @@
 
     function applyPeer(peer) {
         if (!peer) return;
-        const changed = JSON.stringify(peer) !== JSON.stringify(S.peer);
-        S.peer = peer;
-        if (!changed) return;
 
-        DOM.peerName.textContent = peer.name;
-        DOM.peerAvatar.style.setProperty('--c', peer.color);
-        DOM.peerAvatar.innerHTML = peer.avatar_url
-            ? `<img src="${esc(peer.avatar_url)}" alt="">`
-            : esc(peer.initials);
+        const prev = S.peer;
+        S.peer = peer;
+
+        // Имя и аватар перерисовываем только когда они действительно поменялись —
+        // замена innerHTML на каждом опросе перезагружала бы картинку.
+        const identityChanged = !prev
+            || prev.name !== peer.name
+            || prev.color !== peer.color
+            || prev.initials !== peer.initials
+            || prev.avatar_url !== peer.avatar_url;
+
+        if (identityChanged) {
+            DOM.peerName.textContent = peer.name;
+            DOM.peerAvatar.style.setProperty('--c', peer.color);
+            DOM.peerAvatar.innerHTML = peer.avatar_url
+                ? `<img src="${esc(peer.avatar_url)}" alt="">`
+                : esc(peer.initials);
+        }
+
+        paintPeerStatus();
+    }
+
+    /**
+     * Строку статуса красим всегда, а не только при изменении данных:
+     * у офлайн-собеседника ответ сервера не меняется, зато «5 минут назад»
+     * со временем превращается в «час назад».
+     */
+    function paintPeerStatus() {
+        const peer = S.peer;
+        if (!peer) return;
+
+        const typing = !!peer.typing;
 
         // Собеседник может скрыть присутствие — тогда сервер не присылает
         // ни online, ни время последнего захода, и строку статуса не показываем.
-        DOM.peerStatus.classList.toggle('online', !peer.presence_hidden && peer.online && !peer.typing);
-        DOM.peerStatus.classList.toggle('typing', !!peer.typing);
+        DOM.peerStatus.classList.toggle('online', !peer.presence_hidden && peer.online && !typing);
+        DOM.peerStatus.classList.toggle('typing', typing);
 
-        if (peer.presence_hidden) {
-            DOM.peerStatus.textContent = peer.typing ? 'печатает…' : '';
+        if (typing) {
+            DOM.peerStatus.textContent = 'печатает…';
+        } else if (peer.presence_hidden) {
+            DOM.peerStatus.textContent = '';
         } else {
-            DOM.peerStatus.textContent = peer.typing
-                ? 'печатает…'
-                : (peer.online ? 'в сети' : lastSeenLabel(peer.last_seen_at));
+            DOM.peerStatus.textContent = peer.online ? 'в сети' : lastSeenLabel(peer.last_seen_at);
         }
 
-        DOM.typingFloat.hidden = !peer.typing;
+        DOM.typingFloat.hidden = !typing;
         DOM.typingText.textContent = `${peer.name} печатает…`;
     }
 
@@ -2055,6 +2079,9 @@
         buildEmojiPanel();
         bind();
         trackKeyboard();
+
+        // «был(а) 5 минут назад» должно стареть само, без новых данных с сервера
+        setInterval(paintPeerStatus, 30000);
 
         DOM.input.value = localStorage.getItem('chat.draft') || '';
         autoGrow();
