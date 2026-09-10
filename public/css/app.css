@@ -922,6 +922,68 @@ button { font: inherit; color: inherit; }
     30% { transform: translateY(-4px); opacity: 1; }
 }
 
+/* Предложение установить приложение / включить уведомления */
+.app-prompt {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 78px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow);
+    z-index: 20;
+    animation: slide-up .22s ease-out;
+}
+@keyframes slide-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+}
+.app-prompt .ap-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    object-fit: cover;
+    flex: none;
+}
+.app-prompt .ap-body { flex: 1; min-width: 0; }
+.app-prompt .ap-title { font-weight: 600; font-size: 14.5px; }
+.app-prompt .ap-text { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.app-prompt .ap-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.app-prompt .ap-ok { padding: 9px 16px; font-size: 14px; border-radius: 11px; }
+.app-prompt .ap-later {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13.5px;
+    padding: 9px 10px;
+    border-radius: 11px;
+    cursor: pointer;
+}
+.app-prompt .ap-later:hover { background: var(--line); color: var(--text); }
+
+/* Инструкция для iOS: кнопки «установить» там нет, только подсказка */
+.app-prompt.hint .ap-ok { display: none; }
+.app-prompt .ios-share {
+    display: inline-block;
+    vertical-align: -2px;
+    width: 15px;
+    height: 15px;
+    stroke-width: 2;
+}
+
+@media (max-width: 640px) {
+    .app-prompt {
+        flex-wrap: wrap;
+        bottom: 72px;
+    }
+    .app-prompt .ap-actions { width: 100%; justify-content: flex-end; }
+}
+
 /* Перетаскивание файлов */
 .drop-overlay {
     position: absolute;

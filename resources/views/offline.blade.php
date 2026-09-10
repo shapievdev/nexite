@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Нет сети — {{ config('app.name') }}</title>
     <link rel="icon" href="{{ asset('icons/favicon-32.png') }}" sizes="32x32">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="login-body">
 <div class="login-card">

@@ -41,6 +41,7 @@
         pushOn: false,
         swReg: null,
         installPrompt: null,
+        promptTimer: null,
         pollTimer: null,
         typingSentAt: 0,
         typingStopTimer: null,
@@ -1332,6 +1333,123 @@
     }
 
     /* ---------------------------------------------------------------------
+     * Предложение установить приложение и включить уведомления
+     * ------------------------------------------------------------------ */
+
+    /** Приложение уже стоит на экране «Домой» / открыто как отдельное окно. */
+    const isInstalled = () =>
+        window.matchMedia?.('(display-mode: standalone)').matches
+        || window.matchMedia?.('(display-mode: window-controls-overlay)').matches
+        || navigator.standalone === true;
+
+    const isIOS = () =>
+        /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+
+    const SNOOZE_DAYS = 7;
+
+    function snoozed(kind) {
+        const at = Number(localStorage.getItem(`chat.prompt.${kind}`) || 0);
+        return at && Date.now() - at < SNOOZE_DAYS * 864e5;
+    }
+
+    const snooze = (kind) => localStorage.setItem(`chat.prompt.${kind}`, String(Date.now()));
+
+    /**
+     * Что предложить прямо сейчас. Порядок важен: на iOS уведомления
+     * работают только после добавления на экран «Домой», поэтому сначала установка.
+     */
+    function nextPrompt() {
+        if (!isInstalled() && !snoozed('install')) {
+            if (S.installPrompt) {
+                return {
+                    kind: 'install',
+                    title: 'Установить приложение',
+                    text: 'Чат откроется в своём окне, без адресной строки.',
+                    ok: 'Установить',
+                };
+            }
+
+            if (isIOS()) {
+                return {
+                    kind: 'install',
+                    hint: true,
+                    title: 'Добавьте чат на экран «Домой»',
+                    text: 'Нажмите <svg class="ios-share" viewBox="0 0 24 24" fill="none" stroke="currentColor">'
+                        + '<path d="M12 3v13"/><path d="m8 7 4-4 4 4"/>'
+                        + '<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>'
+                        + ' внизу экрана → «На экран „Домой“». Без этого iPhone не показывает уведомления.',
+                };
+            }
+        }
+
+        if (pushSupported() && !S.pushOn && Notification.permission !== 'denied' && !snoozed('push')) {
+            return {
+                kind: 'push',
+                title: 'Включить уведомления',
+                text: 'Будете видеть новые сообщения, даже когда чат закрыт.',
+                ok: 'Включить',
+            };
+        }
+
+        return null;
+    }
+
+    function hidePrompt() {
+        $('#app-prompt').hidden = true;
+    }
+
+    function showPrompt() {
+        const box = $('#app-prompt');
+        const p = nextPrompt();
+
+        if (!p) {
+            box.hidden = true;
+            return;
+        }
+
+        box.dataset.kind = p.kind;
+        box.classList.toggle('hint', !!p.hint);
+        $('#ap-title').textContent = p.title;
+        $('#ap-text').innerHTML = p.text;
+        if (p.ok) $('#ap-ok').textContent = p.ok;
+        box.hidden = false;
+    }
+
+    /** Не лезем сразу: даём человеку сначала увидеть переписку. */
+    function schedulePrompt(delay = 4000) {
+        clearTimeout(S.promptTimer);
+        S.promptTimer = setTimeout(showPrompt, delay);
+    }
+
+    async function acceptPrompt() {
+        const kind = $('#app-prompt').dataset.kind;
+        hidePrompt();
+
+        if (kind === 'install') {
+            if (!S.installPrompt) return;
+            S.installPrompt.prompt();
+            const { outcome } = await S.installPrompt.userChoice;
+            S.installPrompt = null;
+            $('#menu-install').hidden = true;
+            if (outcome !== 'accepted') snooze('install');
+            // После установки логично сразу предложить уведомления.
+            schedulePrompt(1500);
+            return;
+        }
+
+        if (kind === 'push') {
+            S.pushOn = await enablePush();
+            paintPushState();
+            if (S.pushOn) {
+                toast('Уведомления включены');
+            } else {
+                snooze('push');
+            }
+        }
+    }
+
+    /* ---------------------------------------------------------------------
      * Поиск
      * ------------------------------------------------------------------ */
 
@@ -1698,6 +1816,8 @@
                 case 'push':
                     S.pushOn = S.pushOn ? await disablePush() : await enablePush();
                     paintPushState();
+                    // Выключили сами — не напоминаем об этом неделю.
+                    if (!S.pushOn) snooze('push'); else hidePrompt();
                     toast(S.pushOn
                         ? 'Уведомления включены — они будут приходить, даже когда чат закрыт'
                         : 'Уведомления выключены');
@@ -1809,12 +1929,22 @@
             e.preventDefault();
             S.installPrompt = e;
             $('#menu-install').hidden = false;
+            if ($('#app-prompt').hidden) schedulePrompt(4000);
         });
 
         window.addEventListener('appinstalled', () => {
             S.installPrompt = null;
             $('#menu-install').hidden = true;
+            hidePrompt();
             toast('Приложение установлено');
+            schedulePrompt(1500);   // теперь можно предложить уведомления
+        });
+
+        $('#ap-ok').addEventListener('click', acceptPrompt);
+        $('#ap-later').addEventListener('click', () => {
+            snooze($('#app-prompt').dataset.kind);
+            hidePrompt();
+            schedulePrompt(1200);   // возможно, есть что предложить следом
         });
 
         window.addEventListener('beforeunload', () => {
@@ -1852,6 +1982,7 @@
         // PWA поднимаем последним — оно не должно задерживать показ переписки
         S.swReg = await registerServiceWorker();
         await refreshPushState();
+        schedulePrompt();
 
         // Переход из уведомления: /?m=123 — подсветить нужное сообщение
         const target = Number(new URLSearchParams(location.search).get('m'));

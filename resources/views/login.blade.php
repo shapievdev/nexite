@@ -16,7 +16,7 @@
     <link rel="icon" href="{{ asset('icons/icon-192.png') }}" sizes="192x192">
     <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
 
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="login-body">
 <div class="login-card">

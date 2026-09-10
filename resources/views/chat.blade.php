@@ -17,7 +17,7 @@
     <link rel="icon" href="{{ asset('icons/icon-192.png') }}" sizes="192x192">
     <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
 
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body>
 <div class="app" id="app">
@@ -149,6 +149,18 @@
         </div>
     </footer>
 
+    <div class="app-prompt" id="app-prompt" hidden>
+        <img class="ap-icon" src="{{ asset('icons/icon-192.png') }}" alt="">
+        <div class="ap-body">
+            <div class="ap-title" id="ap-title"></div>
+            <div class="ap-text" id="ap-text"></div>
+        </div>
+        <div class="ap-actions">
+            <button class="btn-primary ap-ok" id="ap-ok"></button>
+            <button class="ap-later" id="ap-later">Позже</button>
+        </div>
+    </div>
+
     <div class="emoji-panel" id="emoji-panel" hidden></div>
     <div class="drop-overlay" id="drop-overlay" hidden><div>Отпустите файл, чтобы отправить</div></div>
 </div>
@@ -190,6 +202,6 @@
         },
     };
 </script>
-<script src="{{ asset('js/chat.js') }}"></script>
+<script src="{{ asset('js/chat.js') }}?v={{ filemtime(public_path('js/chat.js')) }}"></script>
 </body>
 </html>
