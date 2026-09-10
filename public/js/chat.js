@@ -722,11 +722,18 @@
             ? `<img src="${esc(peer.avatar_url)}" alt="">`
             : esc(peer.initials);
 
-        DOM.peerStatus.classList.toggle('online', peer.online && !peer.typing);
-        DOM.peerStatus.classList.toggle('typing', peer.typing);
-        DOM.peerStatus.textContent = peer.typing
-            ? 'печатает…'
-            : (peer.online ? 'в сети' : lastSeenLabel(peer.last_seen_at));
+        // Собеседник может скрыть присутствие — тогда сервер не присылает
+        // ни online, ни время последнего захода, и строку статуса не показываем.
+        DOM.peerStatus.classList.toggle('online', !peer.presence_hidden && peer.online && !peer.typing);
+        DOM.peerStatus.classList.toggle('typing', !!peer.typing);
+
+        if (peer.presence_hidden) {
+            DOM.peerStatus.textContent = peer.typing ? 'печатает…' : '';
+        } else {
+            DOM.peerStatus.textContent = peer.typing
+                ? 'печатает…'
+                : (peer.online ? 'в сети' : lastSeenLabel(peer.last_seen_at));
+        }
 
         DOM.typingFloat.hidden = !peer.typing;
         DOM.typingText.textContent = `${peer.name} печатает…`;
@@ -1582,6 +1589,14 @@
             <div class="color-row" id="pf-colors">
                 ${PALETTE.map((c) => `<button class="color-dot${c === me.color ? ' sel' : ''}" data-c="${c}" style="background:${c}"></button>`).join('')}
             </div>
+            <label class="switch-row">
+                <input type="checkbox" id="pf-hide" ${me.hide_presence ? 'checked' : ''}>
+                <span>
+                    <b>Скрывать, когда я в сети</b>
+                    <i>Собеседник не увидит ни «в сети», ни время последнего захода.
+                       Вы его статус видите по-прежнему.</i>
+                </span>
+            </label>
             <div class="modal-error" id="pf-error" hidden></div>
             <div class="modal-actions">
                 <button class="btn-ghost" id="pf-cancel">Отмена</button>
@@ -1615,6 +1630,7 @@
             form.append('name', box.querySelector('#pf-name').value.trim());
             form.append('bio', box.querySelector('#pf-bio').value.trim());
             form.append('color', color);
+            form.append('hide_presence', box.querySelector('#pf-hide').checked ? '1' : '0');
             if (avatarFile) form.append('avatar', avatarFile);
 
             try {

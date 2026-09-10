@@ -21,7 +21,12 @@ class ProfileController extends Controller
             'bio' => ['nullable', 'string', 'max:200'],
             'color' => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'avatar' => ['nullable', 'image', 'max:4096'],
+            'hide_presence' => ['sometimes', 'boolean'],
         ]);
+
+        if ($request->has('hide_presence')) {
+            $data['hide_presence'] = $request->boolean('hide_presence');
+        }
 
         if ($request->hasFile('avatar')) {
             if ($user->avatar_path) {
@@ -40,7 +45,7 @@ class ProfileController extends Controller
         unset($data['avatar']);
         $user->update($data);
 
-        return response()->json(['user' => $user->fresh()->toPublicArray()]);
+        return response()->json(['user' => $user->fresh()->toPublicArray($user)]);
     }
 
     public function changeCode(Request $request): JsonResponse

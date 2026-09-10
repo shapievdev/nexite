@@ -95,8 +95,8 @@ class ChatController extends Controller
             'now' => now()->toIso8601String(),
             'messages' => $new->map->toArray(),
             'updated' => $updated->map->toArray(),
-            'peer' => $peer?->toPublicArray(),
-            'me' => $me->toPublicArray(),
+            'peer' => $peer?->toPublicArray($me),
+            'me' => $me->toPublicArray($me),
             'pinned' => $this->pinnedPayload(),
             'total' => Message::count(),
         ]);

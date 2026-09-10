@@ -31,7 +31,7 @@
             </div>
             <div class="peer-text">
                 <div class="peer-name" id="peer-name">{{ $peer?->name ?? 'Собеседник не создан' }}</div>
-                <div class="peer-status" id="peer-status">не в сети</div>
+                <div class="peer-status" id="peer-status">{{ $peer?->hidesPresenceFrom($me) ? '' : 'не в сети' }}</div>
             </div>
         </div>
 
@@ -182,8 +182,8 @@
 
 <script>
     window.CHAT = {
-        me: @json($me->toPublicArray()),
-        peer: @json($peer?->toPublicArray()),
+        me: @json($me->toPublicArray($me)),
+        peer: @json($peer?->toPublicArray($me)),
         vapidPublicKey: @json(config('services.vapid.public_key')),
         routes: {
             messages: '/api/messages',

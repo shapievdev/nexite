@@ -30,6 +30,7 @@ class User extends Authenticatable
         'color',
         'avatar_path',
         'bio',
+        'hide_presence',
         'last_seen_at',
         'active_at',
         'typing_at',
@@ -44,6 +45,7 @@ class User extends Authenticatable
     {
         return [
             'access_code' => 'hashed',
+            'hide_presence' => 'boolean',
             'last_seen_at' => 'datetime',
             'active_at' => 'datetime',
             'typing_at' => 'datetime',
@@ -136,9 +138,21 @@ class User extends Authenticatable
         return static::whereKeyNot($this->getKey())->orderBy('id')->first();
     }
 
-    public function toPublicArray(): array
+    /** Скрывает ли этот участник своё присутствие от собеседника. */
+    public function hidesPresenceFrom(?self $viewer): bool
     {
-        return [
+        return $this->hide_presence
+            && $viewer !== null
+            && $viewer->getKey() !== $this->getKey();
+    }
+
+    /**
+     * @param  self|null  $viewer  кто смотрит; для него скрываем присутствие,
+     *                             если владелец профиля так настроил
+     */
+    public function toPublicArray(?self $viewer = null): array
+    {
+        $data = [
             'id' => $this->id,
             'name' => $this->name,
             'username' => $this->username,
@@ -146,9 +160,19 @@ class User extends Authenticatable
             'initials' => $this->initials(),
             'avatar_url' => $this->avatar_path ? route('avatar', $this) : null,
             'bio' => $this->bio,
-            'online' => $this->isOnline(),
             'typing' => $this->isTyping(),
+        ];
+
+        if ($this->hidesPresenceFrom($viewer)) {
+            // Ни «в сети», ни времени последнего захода — полей просто нет.
+            return $data + ['presence_hidden' => true];
+        }
+
+        return $data + [
+            'presence_hidden' => false,
+            'online' => $this->isOnline(),
             'last_seen_at' => $this->last_seen_at?->toIso8601String(),
+            'hide_presence' => $this->hide_presence,
         ];
     }
 }

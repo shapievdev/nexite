@@ -315,6 +315,91 @@ class ChatTest extends TestCase
         $response->assertSee('name="code"', false);
     }
 
+    public function test_скрытый_статус_не_виден_собеседнику(): void
+    {
+        $this->bob->update(['hide_presence' => true]);
+        $this->bob->forceFill(['last_seen_at' => now()])->saveQuietly();
+
+        // Алиса не должна получить ни «в сети», ни время последнего захода
+        $peer = $this->actingAs($this->alice)
+            ->getJson('/api/sync?last_id=0')
+            ->assertOk()
+            ->assertJsonPath('peer.presence_hidden', true)
+            ->json('peer');
+
+        $this->assertArrayNotHasKey('online', $peer);
+        $this->assertArrayNotHasKey('last_seen_at', $peer);
+        $this->assertSame('Борис', $peer['name']);   // остальное на месте
+    }
+
+    public function test_скрытие_статуса_одностороннее(): void
+    {
+        $this->bob->update(['hide_presence' => true]);
+        $this->alice->forceFill(['last_seen_at' => now()])->saveQuietly();
+
+        // Борис по-прежнему видит статус Алисы
+        $this->actingAs($this->bob)
+            ->getJson('/api/sync?last_id=0')
+            ->assertJsonPath('peer.presence_hidden', false)
+            ->assertJsonPath('peer.online', true);
+    }
+
+    public function test_свой_статус_виден_себе_всегда(): void
+    {
+        $this->bob->update(['hide_presence' => true]);
+        $this->bob->forceFill(['last_seen_at' => now()])->saveQuietly();
+
+        $this->actingAs($this->bob)
+            ->getJson('/api/sync?last_id=0')
+            ->assertJsonPath('me.presence_hidden', false)
+            ->assertJsonPath('me.online', true)
+            ->assertJsonPath('me.hide_presence', true);
+    }
+
+    public function test_настройка_переключается_из_профиля(): void
+    {
+        $this->actingAs($this->bob)
+            ->postJson('/api/profile', [
+                'name' => 'Борис', 'color' => '#e0725c', 'hide_presence' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('user.hide_presence', true);
+
+        $this->assertTrue($this->bob->fresh()->hide_presence);
+
+        $this->actingAs($this->bob)
+            ->postJson('/api/profile', [
+                'name' => 'Борис', 'color' => '#e0725c', 'hide_presence' => false,
+            ])
+            ->assertOk();
+
+        $this->assertFalse($this->bob->fresh()->hide_presence);
+    }
+
+    public function test_страница_чата_не_подставляет_статус_если_он_скрыт(): void
+    {
+        $this->bob->update(['hide_presence' => true]);
+
+        $this->actingAs($this->alice)->get('/')->assertOk()
+            ->assertDontSee('id="peer-status">не в сети', false);
+
+        $this->bob->update(['hide_presence' => false]);
+
+        $this->actingAs($this->alice)->get('/')->assertOk()
+            ->assertSee('id="peer-status">не в сети', false);
+    }
+
+    public function test_команда_chat_privacy(): void
+    {
+        $this->artisan('chat:privacy bob on')->assertSuccessful();
+        $this->assertTrue($this->bob->fresh()->hide_presence);
+
+        $this->artisan('chat:privacy bob off')->assertSuccessful();
+        $this->assertFalse($this->bob->fresh()->hide_presence);
+
+        $this->artisan('chat:privacy никого on')->assertFailed();
+    }
+
     public function test_обновление_профиля(): void
     {
         $this->actingAs($this->alice)
