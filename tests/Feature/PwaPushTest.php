@@ -135,7 +135,7 @@ class PwaPushTest extends TestCase
 
     public function test_push_уходит_офлайн_собеседнику(): void
     {
-        $this->bob->forceFill(['last_seen_at' => now()->subHour()])->saveQuietly();
+        $this->bob->forceFill(['last_seen_at' => now()->subHour(), 'active_at' => null])->saveQuietly();
 
         $this->mock(PushSender::class, function (MockInterface $mock) {
             $mock->shouldReceive('sendToUser')
@@ -153,9 +153,9 @@ class PwaPushTest extends TestCase
             ->assertCreated();
     }
 
-    public function test_push_не_дублирует_уведомление_тому_кто_в_чате(): void
+    public function test_push_не_дублирует_уведомление_тому_кто_смотрит_в_чат(): void
     {
-        $this->bob->forceFill(['last_seen_at' => now()])->saveQuietly();
+        $this->bob->forceFill(['last_seen_at' => now(), 'active_at' => now()])->saveQuietly();
 
         $this->mock(PushSender::class, function (MockInterface $mock) {
             $mock->shouldNotReceive('sendToUser');
@@ -164,6 +164,45 @@ class PwaPushTest extends TestCase
         $this->actingAs($this->alice)
             ->postJson('/api/messages', ['body' => 'Ты дома?'])
             ->assertCreated();
+    }
+
+    /**
+     * Установленный PWA продолжает опрашивать сервер, лёжа в кармане.
+     * Само по себе это не повод молчать — иначе уведомления не придут никогда.
+     */
+    public function test_push_уходит_если_приложение_живо_но_свёрнуто(): void
+    {
+        $this->bob->forceFill(['last_seen_at' => now(), 'active_at' => null])->saveQuietly();
+
+        $this->mock(PushSender::class, function (MockInterface $mock) {
+            $mock->shouldReceive('sendToUser')->once()->andReturn(1);
+        });
+
+        $this->actingAs($this->alice)
+            ->postJson('/api/messages', ['body' => 'Ты дома?'])
+            ->assertCreated();
+    }
+
+    public function test_отметка_видимости_ставится_и_снимается(): void
+    {
+        $this->actingAs($this->bob)->getJson('/api/sync?last_id=0&visible=1')->assertOk();
+        $this->assertTrue($this->bob->fresh()->isActive());
+
+        $this->actingAs($this->bob)->getJson('/api/sync?last_id=0&visible=0')->assertOk();
+        $this->assertFalse($this->bob->fresh()->isActive());
+
+        $this->actingAs($this->bob)->postJson('/api/presence', ['visible' => true])->assertOk();
+        $this->assertTrue($this->bob->fresh()->isActive());
+
+        $this->actingAs($this->bob)->postJson('/api/presence', ['visible' => false])->assertOk();
+        $this->assertNull($this->bob->fresh()->active_at);
+    }
+
+    public function test_отметка_видимости_протухает(): void
+    {
+        $this->bob->forceFill(['active_at' => now()->subSeconds(User::ACTIVE_WINDOW + 5)])->saveQuietly();
+
+        $this->assertFalse($this->bob->fresh()->isActive());
     }
 
     public function test_проверочное_уведомление_без_подписок(): void

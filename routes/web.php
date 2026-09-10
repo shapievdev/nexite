@@ -38,6 +38,7 @@ Route::middleware(['auth', 'presence'])->group(function () {
         Route::get('/search', [ChatController::class, 'search']);
         Route::post('/read', [ChatController::class, 'read']);
         Route::post('/typing', [ChatController::class, 'typing']);
+        Route::post('/presence', [ChatController::class, 'presence']);
         Route::delete('/history', [ChatController::class, 'clear']);
 
         Route::post('/profile', [ProfileController::class, 'update']);

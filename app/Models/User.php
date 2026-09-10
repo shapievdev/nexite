@@ -14,6 +14,12 @@ class User extends Authenticatable
     /** Через сколько секунд без активности считаем собеседника оффлайн */
     public const ONLINE_WINDOW = 25;
 
+    /**
+     * Сколько секунд отметка «окно чата открыто на экране» считается свежей.
+     * Пока она свежая, push не отправляем — человек и так всё видит.
+     */
+    public const ACTIVE_WINDOW = 12;
+
     /** Сколько секунд «живёт» отметка «печатает…» */
     public const TYPING_WINDOW = 6;
 
@@ -25,6 +31,7 @@ class User extends Authenticatable
         'avatar_path',
         'bio',
         'last_seen_at',
+        'active_at',
         'typing_at',
     ];
 
@@ -38,6 +45,7 @@ class User extends Authenticatable
         return [
             'access_code' => 'hashed',
             'last_seen_at' => 'datetime',
+            'active_at' => 'datetime',
             'typing_at' => 'datetime',
         ];
     }
@@ -97,6 +105,13 @@ class User extends Authenticatable
     {
         return $this->last_seen_at !== null
             && $this->last_seen_at->gt(now()->subSeconds(self::ONLINE_WINDOW));
+    }
+
+    /** Чат прямо сейчас открыт на экране (вкладка видима). */
+    public function isActive(): bool
+    {
+        return $this->active_at !== null
+            && $this->active_at->gt(now()->subSeconds(self::ACTIVE_WINDOW));
     }
 
     public function isTyping(): bool

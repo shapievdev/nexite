@@ -191,6 +191,7 @@
             search: '/api/search',
             read: '/api/read',
             typing: '/api/typing',
+            presence: '/api/presence',
             history: '/api/history',
             profile: '/api/profile',
             code: '/api/profile/code',

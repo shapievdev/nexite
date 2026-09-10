@@ -77,6 +77,8 @@ class ChatController extends Controller
         $me = Auth::user();
         $peer = $me->peer();
 
+        $this->markActive($me, $request->boolean('visible'));
+
         $lastId = $request->integer('last_id');
         $since = $this->parseSince($request->query('since'));
 
@@ -247,6 +249,31 @@ class ChatController extends Controller
             ->update(['read_at' => now(), 'updated_at' => now()]);
 
         return response()->json(['marked' => $count]);
+    }
+
+    /**
+     * Явный сигнал «окно чата свернули / развернули».
+     * Вызывается при visibilitychange, в том числе через sendBeacon,
+     * чтобы push-уведомления возобновились сразу, а не через таймаут.
+     */
+    public function presence(Request $request): JsonResponse
+    {
+        $this->markActive(Auth::user(), $request->boolean('visible'));
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function markActive(User $user, bool $visible): void
+    {
+        if ($visible) {
+            $user->forceFill(['active_at' => now()])->saveQuietly();
+
+            return;
+        }
+
+        if ($user->active_at !== null) {
+            $user->forceFill(['active_at' => null, 'typing_at' => null])->saveQuietly();
+        }
     }
 
     public function typing(Request $request): JsonResponse

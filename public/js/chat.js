@@ -660,7 +660,11 @@
 
     async function sync() {
         try {
-            const params = new URLSearchParams({ last_id: String(S.lastId) });
+            const params = new URLSearchParams({
+                last_id: String(S.lastId),
+                // Сервер шлёт push, только когда чат не на экране.
+                visible: document.visibilityState === 'visible' ? '1' : '0',
+            });
             if (S.since) params.set('since', S.since);
 
             const data = await api('GET', `${CFG.routes.sync}?${params}`);
@@ -1142,6 +1146,25 @@
         }
         clearTimeout(S.typingStopTimer);
         S.typingStopTimer = setTimeout(stopTyping, 3500);
+    }
+
+    /**
+     * Сообщает серверу, открыт ли чат на экране. При уходе со страницы обычный
+     * fetch могут не успеть выполнить, поэтому там используем sendBeacon —
+     * он доставляется, даже когда вкладку уже замораживают.
+     */
+    function reportPresence(visible) {
+        const body = JSON.stringify({ visible, _token: CSRF });
+
+        if (!visible && navigator.sendBeacon) {
+            const ok = navigator.sendBeacon(
+                CFG.routes.presence,
+                new Blob([body], { type: 'application/json' })
+            );
+            if (ok) return;
+        }
+
+        api('POST', CFG.routes.presence, { visible }).catch(() => {});
     }
 
     function stopTyping() {
@@ -1959,11 +1982,20 @@
 
         // Фокус вкладки
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
+            const visible = document.visibilityState === 'visible';
+
+            // Сообщаем сразу, а не ждём следующего опроса: пока сервер думает,
+            // что чат открыт, он не шлёт push.
+            reportPresence(visible);
+
+            if (visible) {
                 if (isAtBottom()) { S.unread = 0; updateScrollDown(); }
                 markRead();
             }
         });
+
+        // Приложение свернули или закрыли — снимаем отметку «смотрю в чат».
+        window.addEventListener('pagehide', () => reportPresence(false));
 
         // Установка приложения (Chrome/Edge на десктопе и Android)
         window.addEventListener('beforeinstallprompt', (e) => {
