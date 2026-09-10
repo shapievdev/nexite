@@ -3,6 +3,16 @@
    ========================================================================== */
 
 :root {
+    /* Безопасные зоны iPhone (чёлка, домашняя полоска) — через переменные,
+       чтобы значения можно было подставить руками при отладке. */
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+
+    /* Высота экранной клавиатуры: заполняется из visualViewport в chat.js */
+    --kb: 0px;
+
     --bg: #0e1621;
     --panel: #17212b;
     --panel-2: #1d2b3a;
@@ -55,6 +65,9 @@ body {
     font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
+    overscroll-behavior: none;              /* без «резинки» при листании в iOS */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;         /* Safari не масштабирует шрифты сам */
 }
 
 svg {
@@ -151,7 +164,7 @@ button { font: inherit; color: inherit; }
     place-items: center;
     background: var(--bg);
     background-image: var(--wall);
-    padding: 24px;
+    padding: calc(24px + var(--sat)) calc(24px + var(--sar)) calc(24px + var(--sab)) calc(24px + var(--sal));
     overflow: auto;
 }
 
@@ -206,7 +219,8 @@ button { font: inherit; color: inherit; }
     position: relative;
     display: flex;
     flex-direction: column;
-    height: 100dvh;
+    /* Клавиатура в iOS не сжимает вьюпорт, поэтому вычитаем её высоту сами. */
+    height: calc(100dvh - var(--kb));
     max-width: 900px;
     margin: 0 auto;
     background: var(--bg);
@@ -215,11 +229,15 @@ button { font: inherit; color: inherit; }
     border-right: 1px solid var(--line);
 }
 
+/* Шапка заходит под строку состояния фоном, но содержимое — ниже неё. */
 .chat-header {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
+    padding-top: calc(10px + var(--sat));
+    padding-left: calc(12px + var(--sal));
+    padding-right: calc(12px + var(--sar));
     background: var(--panel);
     border-bottom: 1px solid var(--line);
     z-index: 6;
@@ -699,7 +717,7 @@ button { font: inherit; color: inherit; }
     flex: none;
     background: var(--panel);
     border-top: 1px solid var(--line);
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    padding: 8px calc(10px + var(--sar)) calc(8px + var(--sab)) calc(10px + var(--sal));
     position: relative;
     z-index: 5;
 }
@@ -825,8 +843,8 @@ button { font: inherit; color: inherit; }
 /* Панель эмодзи */
 .emoji-panel {
     position: absolute;
-    right: 12px;
-    bottom: 68px;
+    right: calc(12px + var(--sar));
+    bottom: calc(68px + var(--sab));
     width: min(340px, calc(100% - 24px));
     max-height: 300px;
     overflow-y: auto;
@@ -861,8 +879,8 @@ button { font: inherit; color: inherit; }
 /* Кнопка «вниз» */
 .scroll-down {
     position: absolute;
-    right: 18px;
-    bottom: 90px;
+    right: calc(18px + var(--sar));
+    bottom: calc(90px + var(--sab));
     width: 44px; height: 44px;
     border: 1px solid var(--line);
     border-radius: 50%;
@@ -893,8 +911,8 @@ button { font: inherit; color: inherit; }
 /* Индикатор «печатает» */
 .typing-float {
     position: absolute;
-    left: 18px;
-    bottom: 92px;
+    left: calc(18px + var(--sal));
+    bottom: calc(92px + var(--sab));
     display: flex;
     align-items: center;
     gap: 8px;
@@ -925,9 +943,9 @@ button { font: inherit; color: inherit; }
 /* Предложение установить приложение / включить уведомления */
 .app-prompt {
     position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 78px;
+    left: calc(12px + var(--sal));
+    right: calc(12px + var(--sar));
+    bottom: calc(78px + var(--sab));
     display: flex;
     align-items: center;
     gap: 12px;
@@ -979,7 +997,7 @@ button { font: inherit; color: inherit; }
 @media (max-width: 640px) {
     .app-prompt {
         flex-wrap: wrap;
-        bottom: 72px;
+        bottom: calc(72px + var(--sab));
     }
     .app-prompt .ap-actions { width: 100%; justify-content: flex-end; }
 }
@@ -1016,11 +1034,16 @@ button { font: inherit; color: inherit; }
     padding: 40px 20px 70px;
 }
 .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; }
-.lightbox-close { position: absolute; top: 16px; right: 16px; color: #fff; }
+.lightbox-close {
+    position: absolute;
+    top: calc(16px + var(--sat));
+    right: calc(16px + var(--sar));
+    color: #fff;
+}
 .lightbox-close:hover { background: rgba(255, 255, 255, .15); }
 .lightbox-download {
     position: absolute;
-    bottom: 24px;
+    bottom: calc(24px + var(--sab));
     color: #fff;
     background: rgba(255, 255, 255, .14);
     padding: 9px 18px;
@@ -1086,7 +1109,7 @@ button { font: inherit; color: inherit; }
 .toasts {
     position: fixed;
     left: 50%;
-    bottom: 26px;
+    bottom: calc(26px + var(--sab));
     transform: translateX(-50%);
     display: flex;
     flex-direction: column;
@@ -1105,6 +1128,32 @@ button { font: inherit; color: inherit; }
     animation: pop .15s ease-out;
 }
 .toast.error { border-color: var(--danger); color: var(--danger); }
+
+/* ==========================================================================
+   Сенсорные экраны
+   ========================================================================== */
+
+/*
+ * Safari на iOS увеличивает страницу, если шрифт поля меньше 16px, и обратно
+ * уже не отматывает. Поэтому на сенсорных устройствах поднимаем до 16px —
+ * на десктопе размеры остаются прежними.
+ */
+@media (pointer: coarse) {
+    .input-wrap textarea,
+    .search-row input,
+    .modal input[type="text"],
+    .modal input[type="password"],
+    .modal textarea {
+        font-size: 16px;
+    }
+
+    /* Долгое нажатие открывает наше меню, а не системную лупу iOS. */
+    .row { -webkit-touch-callout: none; }
+
+    /* На тачах нет наведения — не подсвечиваем кнопки «залипшим» состоянием. */
+    .icon-btn:hover { background: transparent; color: var(--muted); }
+    .reaction:hover, .search-item:hover { filter: none; }
+}
 
 /* ==========================================================================
    Мобильные

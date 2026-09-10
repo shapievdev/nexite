@@ -42,6 +42,7 @@
         swReg: null,
         installPrompt: null,
         promptTimer: null,
+        keyboard: 0,
         pollTimer: null,
         typingSentAt: 0,
         typingStopTimer: null,
@@ -1688,11 +1689,51 @@
         DOM.input.style.height = `${Math.min(DOM.input.scrollHeight, 168)}px`;
     }
 
+    /**
+     * Экранная клавиатура в iOS не сжимает вьюпорт — страница просто уезжает
+     * под неё вместе с полем ввода. Меряем клавиатуру через visualViewport
+     * и отдаём высоту в CSS, чтобы чат ужимался, а композер оставался виден.
+     * В Android/Chrome вьюпорт сжимается сам, там разница выходит нулевой.
+     */
+    function trackKeyboard() {
+        const vv = window.visualViewport;
+        if (!vv) return;
+
+        let raf = null;
+
+        const apply = () => {
+            raf = null;
+            const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            // Мелкие колебания (панель Safari) игнорируем — иначе лента дёргается.
+            const kb = overlap > 80 ? Math.round(overlap) : 0;
+
+            if (kb !== S.keyboard) {
+                S.keyboard = kb;
+                document.documentElement.style.setProperty('--kb', `${kb}px`);
+                if (kb > 0 || S.atBottom) scrollToBottom();
+            }
+        };
+
+        const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
+
+        vv.addEventListener('resize', schedule);
+        vv.addEventListener('scroll', schedule);
+        apply();
+    }
+
     const saveDraft = () => localStorage.setItem('chat.draft', DOM.input.value);
 
     function applyTheme(theme) {
         document.documentElement.dataset.theme = theme;
         localStorage.setItem('chat.theme', theme);
+
+        // Строку состояния в iOS и панель браузера в Android красит theme-color.
+        // Тема переключается вручную, поэтому обновляем цвет сами — иначе,
+        // например, в светлой теме получим белый текст на белой шапке.
+        const panel = getComputedStyle(document.documentElement)
+            .getPropertyValue('--panel').trim();
+        document.querySelector('meta[name="theme-color"]')
+            ?.setAttribute('content', panel || '#17212b');
     }
 
     /* ---------------------------------------------------------------------
@@ -1965,6 +2006,7 @@
 
         buildEmojiPanel();
         bind();
+        trackKeyboard();
 
         DOM.input.value = localStorage.getItem('chat.draft') || '';
         autoGrow();
